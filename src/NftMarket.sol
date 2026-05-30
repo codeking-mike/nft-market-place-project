@@ -11,7 +11,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 contract NftMarket is IERC721Receiver {
 
      uint256 public platformFees; //platform fees charged for each purchase(either in percentage or fixed amount)
-     address public marketPlaceOwner; // The address taht receieves the platformFess 
+     address public marketPlaceOwner; // The address that receieves the platformFess 
      uint256 public listingIdCounter; // a counter that holds every unique listing in the smart contract 
 
      enum nftStatus {Active, Sold, Delisted}
@@ -85,7 +85,21 @@ contract NftMarket is IERC721Receiver {
         return this.onERC721Received.selector;
     }
 
+
     
+    //cancel listing function
+    function cancelListing(uint256 _listingId) public {
+        nftListing storage listing = listings[_listingId];
+        require(listing.status == nftStatus.Active, "Listing is not active");
+        require(listing.seller == msg.sender, "Only the seller can cancel this listing");
+        listing.status = nftStatus.Delisted;
+
+    emit ListingCancelled(_listingId, msg.sender);
+
+        // Transfer the NFT back to the seller
+        IERC721(listing.nftAddress).safeTransferFrom(address(this), listing.seller, listing.tokenId);
+    }
+
 
 }
 
