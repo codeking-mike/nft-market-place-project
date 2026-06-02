@@ -29,7 +29,7 @@ contract NftMarketTest is Test {
         nft.setApprovalForAll(address(market), true);
 
         vm.prank(seller);
-        market.ListNFT(address(nft), TOKEN_ID, PRICE);
+        market.listNft(address(nft), TOKEN_ID, PRICE);
 
         assertEq(market.listingIdCounter(), 1);
 
@@ -59,7 +59,7 @@ contract NftMarketTest is Test {
 
         vm.prank(seller);
         vm.expectRevert("Marketplace: Contract not approved to transfer token");
-        market.ListNFT(address(nft), unapprovedTokenId, PRICE);
+        market.listNft(address(nft), unapprovedTokenId, PRICE);
     }
 
     function testListNFT_RevertsWhenPriceIsZero() public {
@@ -68,7 +68,7 @@ contract NftMarketTest is Test {
 
         vm.prank(seller);
         vm.expectRevert("Price must be greater than zero");
-        market.ListNFT(address(nft), TOKEN_ID, 0);
+        market.listNft(address(nft), TOKEN_ID, 0);
     }
 
     function testListNFT_RevertsWhenCallerIsNotOwner() public {
@@ -79,6 +79,6 @@ contract NftMarketTest is Test {
 
         vm.prank(nonOwner);
         vm.expectRevert("Marketplace: You do not own this token");
-        market.ListNFT(address(nft), TOKEN_ID, PRICE);
+        market.listNft(address(nft), TOKEN_ID, PRICE);
     }
 }

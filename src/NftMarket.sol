@@ -4,19 +4,16 @@ pragma solidity ^0.8.33;
 
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import {IERC20}  from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-
 
 contract NftMarket is IERC721Receiver {
 
-     uint256 public platformFees; //platform fees charged for each purchase(either in percentage or fixed amount)
-     address public marketPlaceOwner; // The address that receieves the platformFess 
+     uint256 public immutable platformFees; //platform fees charged for each purchase(either in percentage or fixed amount)
+     address public constant MARKETPLACE_OWNER; // The address that receieves the platformFess 
      uint256 public listingIdCounter; // a counter that holds every unique listing in the smart contract 
 
      enum nftStatus {Active, Sold, Delisted}
 
-     struct nftListing {
+     struct NftListing {
         uint256 listingId;
         address seller;
         address nftAddress;
@@ -25,7 +22,7 @@ contract NftMarket is IERC721Receiver {
         nftStatus status;
      }
 
-     mapping (uint256 => nftListing) public listings;
+     mapping (uint256 => NftListing) public listings;
 
      //events for front end integration
 
@@ -41,7 +38,7 @@ contract NftMarket is IERC721Receiver {
     }
 
  //list NFT function
-    function ListNFT(address _nftAddress, uint256 _tokenId, uint256 _price) public {
+    function listNft(address _nftAddress, uint256 _tokenId, uint256 _price) public {
          require(_price > 0, "Price must be greater than zero");
         
          // Ensure the sender is the actual owner of the NFT before transferring
@@ -59,7 +56,7 @@ contract NftMarket is IERC721Receiver {
     listingIdCounter++;
     uint256 currentListingId = listingIdCounter;
 
-    listings[currentListingId] = nftListing({
+    listings[currentListingId] = NftListing({
         listingId: currentListingId,
         seller: msg.sender,
         nftAddress: _nftAddress,
@@ -86,10 +83,39 @@ contract NftMarket is IERC721Receiver {
     }
 
 
+    //BuyNFT function
+
+function buyNft(uint256 _listingId) external payable nonReentrant {
+    // 1. Checks
+    Listing storage listing = listings[_listingId];
+    
+    require(listing.status == ListingStatus.Active, "Marketplace: Listing is not active");
+    require(msg.value == listing.price, "Marketplace: Incorrect ETH amount sent");
+
+    // 2. Effects
+    listing.status = ListingStatus.Sold;
+
+    // 3. Interactions
+    // Calculate platform fee cut (e.g., platformFeeBps = 250 means 2.5%)
+    uint256 feeCharged = (listing.price * platformFee) / 10000;
+    uint256 sellerPayout = listing.price - feeCharged;
+
+    // Transfer payout to the seller
+    (bool successSeller, ) = payable(listing.seller).call{value: sellerPayout}("");
+    require(successSeller, "Marketplace: Seller payment failed");
+
+    // Transfer the NFT from escrow to the buyer
+    IERC721(listing.nftAddress).safeTransferFrom(address(this), msg.sender, listing.tokenId);
+
+    // 4. Emit Event
+    emit NFTSold(_listingId, msg.sender, listing.nftAddress, listing.tokenId, listing.price, feeCharged);
+}
+
+
     
     //cancel listing function
     function cancelListing(uint256 _listingId) public {
-        nftListing storage listing = listings[_listingId];
+        NftListing storage listing = listings[_listingId];
         require(listing.status == nftStatus.Active, "Listing is not active");
         require(listing.seller == msg.sender, "Only the seller can cancel this listing");
         listing.status = nftStatus.Delisted;
@@ -99,6 +125,8 @@ contract NftMarket is IERC721Receiver {
         // Transfer the NFT back to the seller
         IERC721(listing.nftAddress).safeTransferFrom(address(this), listing.seller, listing.tokenId);
     }
+
+
 
 
 }
