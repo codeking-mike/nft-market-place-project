@@ -81,4 +81,145 @@ contract NftMarketTest is Test {
         vm.expectRevert("Marketplace: You do not own this token");
         market.listNft(address(nft), TOKEN_ID, PRICE);
     }
+
+    function testBuyNFT_SuccessfulPurchase() public {
+        // Setup: List NFT first
+        vm.prank(seller);
+        nft.setApprovalForAll(address(market), true);
+
+        vm.prank(seller);
+        market.listNft(address(nft), TOKEN_ID, PRICE);
+
+        // Create buyer
+        address buyer = makeAddr("buyer");
+        vm.deal(buyer, PRICE);
+
+        // Execute purchase
+        vm.prank(buyer);
+        market.buyNft{value: PRICE}(1);
+
+        // Verify NFT transferred to buyer
+        assertEq(nft.ownerOf(TOKEN_ID), buyer);
+
+        // Verify listing marked as sold
+        (, , , , , NftMarket.nftStatus status) = market.listings(1);
+        assertEq(uint8(status), uint8(NftMarket.nftStatus.Sold));
+
+        // Verify seller received payment (after fee)
+        uint256 expectedFee = (PRICE * PLATFORM_FEE) / 10000;
+        uint256 expectedSellerPayout = PRICE - expectedFee;
+        assertEq(seller.balance, expectedSellerPayout);
+    }
+
+    function testBuyNFT_RevertsWhenListingNotActive() public {
+        vm.prank(seller);
+        nft.setApprovalForAll(address(market), true);
+
+        vm.prank(seller);
+        market.listNft(address(nft), TOKEN_ID, PRICE);
+
+        // Cancel the listing first
+        vm.prank(seller);
+        market.cancelListing(1);
+
+        // Try to buy delisted NFT
+        address buyer = makeAddr("buyer");
+        vm.deal(buyer, PRICE);
+
+        vm.prank(buyer);
+        vm.expectRevert("Marketplace: Listing is not active");
+        market.buyNft(1);
+    }
+
+    function testBuyNFT_RevertsWithIncorrectETHAmount() public {
+        vm.prank(seller);
+        nft.setApprovalForAll(address(market), true);
+
+        vm.prank(seller);
+        market.listNft(address(nft), TOKEN_ID, PRICE);
+
+        address buyer = makeAddr("buyer");
+        vm.deal(buyer, PRICE / 2); // Not enough
+
+        vm.prank(buyer);
+        vm.expectRevert("Marketplace: Incorrect ETH amount sent");
+        market.buyNft{value: PRICE / 2}(1);
+    }
+
+    function testCancelListing_SuccessfullyCancels() public {
+        vm.prank(seller);
+        nft.setApprovalForAll(address(market), true);
+
+        vm.prank(seller);
+        market.listNft(address(nft), TOKEN_ID, PRICE);
+
+        vm.prank(seller);
+        market.cancelListing(1);
+
+        // Verify NFT returned to seller
+        assertEq(nft.ownerOf(TOKEN_ID), seller);
+
+        // Verify listing marked as delisted
+        (, , , , , NftMarket.nftStatus status) = market.listings(1);
+        assertEq(uint8(status), uint8(NftMarket.nftStatus.Delisted));
+    }
+
+    function testCancelListing_RevertsIfNotSeller() public {
+        vm.prank(seller);
+        nft.setApprovalForAll(address(market), true);
+
+        vm.prank(seller);
+        market.listNft(address(nft), TOKEN_ID, PRICE);
+
+        address nonSeller = makeAddr("nonSeller");
+        vm.prank(nonSeller);
+        vm.expectRevert("Only the seller can cancel this listing");
+        market.cancelListing(1);
+    }
+
+    function testUpdatePlatformFees_OnlyOwner() public {
+        uint256 newFee = 25;
+        
+        vm.prank(marketOwner);
+        market.updatePlatformFees(newFee);
+
+        assertEq(market.platformFees(), newFee);
+    }
+
+    function testUpdatePlatformFees_RevertsIfNotOwner() public {
+        address nonOwner = makeAddr("nonOwner");
+
+        vm.prank(nonOwner);
+        vm.expectRevert();
+        market.updatePlatformFees(25);
+    }
+
+    function testWithdrawPlatformFees_OnlyOwner() public {
+        // Setup: Perform a transaction to generate fees
+        vm.prank(seller);
+        nft.setApprovalForAll(address(market), true);
+
+        vm.prank(seller);
+        market.listNft(address(nft), TOKEN_ID, PRICE);
+
+        address buyer = makeAddr("buyer");
+        vm.deal(buyer, PRICE);
+
+        vm.prank(buyer);
+        market.buyNft{value: PRICE}(1);
+
+        // Withdraw fees as owner
+        uint256 contractBalance = address(market).balance;
+        vm.prank(marketOwner);
+        market.withdrawPlatformFees();
+
+        // Verify balance transferred to owner
+        assertEq(marketOwner.balance, contractBalance);
+    }
+
+    function testWithdrawPlatformFees_RevertsWithNoFees() public {
+        vm.prank(marketOwner);
+        vm.expectRevert("No fees to withdraw");
+        market.withdrawPlatformFees();
+    }
 }

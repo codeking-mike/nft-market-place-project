@@ -4,11 +4,14 @@ pragma solidity ^0.8.33;
 
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol"; 
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract NftMarket is IERC721Receiver {
 
-     uint256 public immutable platformFees; //platform fees charged for each purchase(either in percentage or fixed amount)
-     address public constant MARKETPLACE_OWNER; // The address that receieves the platformFess 
+contract NftMarket is IERC721Receiver, ReentrancyGuard, Ownable {
+
+     uint256 public platformFees; //platform fees charged for each purchase(in basis points, e.g., 250 = 2.5%)
+     address public immutable MARKETPLACE_OWNER; // The address that receives the platformFees 
      uint256 public listingIdCounter; // a counter that holds every unique listing in the smart contract 
 
      enum nftStatus {Active, Sold, Delisted}
@@ -32,9 +35,9 @@ contract NftMarket is IERC721Receiver {
         event PlatformFeeUpdated(uint256 oldFee, uint256 newFee);
 
 
-    constructor(uint256 _platformFees, address _marketPlaceOwner) {
+    constructor(uint256 _platformFees, address _marketPlaceOwner) Ownable(_marketPlaceOwner) {
         platformFees = _platformFees;
-        marketPlaceOwner = _marketPlaceOwner;
+        MARKETPLACE_OWNER = _marketPlaceOwner;
     }
 
  //list NFT function
@@ -79,7 +82,7 @@ contract NftMarket is IERC721Receiver {
         uint256,
         bytes calldata
     ) external pure override returns (bytes4) {
-        return this.onERC721Received.selector;
+        return IERC721Receiver.onERC721Received.selector;
     }
 
 
@@ -87,17 +90,17 @@ contract NftMarket is IERC721Receiver {
 
 function buyNft(uint256 _listingId) external payable nonReentrant {
     // 1. Checks
-    Listing storage listing = listings[_listingId];
+    NftListing storage listing = listings[_listingId];
     
-    require(listing.status == ListingStatus.Active, "Marketplace: Listing is not active");
+    require(listing.status == nftStatus.Active, "Marketplace: Listing is not active");
     require(msg.value == listing.price, "Marketplace: Incorrect ETH amount sent");
 
     // 2. Effects
-    listing.status = ListingStatus.Sold;
+    listing.status = nftStatus.Sold;
 
     // 3. Interactions
-    // Calculate platform fee cut (e.g., platformFeeBps = 250 means 2.5%)
-    uint256 feeCharged = (listing.price * platformFee) / 10000;
+    // Calculate platform fee cut (e.g., platformFees = 250 means 2.5%)
+    uint256 feeCharged = (listing.price * platformFees) / 10000;
     uint256 sellerPayout = listing.price - feeCharged;
 
     // Transfer payout to the seller
@@ -124,6 +127,22 @@ function buyNft(uint256 _listingId) external payable nonReentrant {
 
         // Transfer the NFT back to the seller
         IERC721(listing.nftAddress).safeTransferFrom(address(this), listing.seller, listing.tokenId);
+    }
+
+
+    //function to update platform fees, only callable by the marketplace owner
+    function updatePlatformFees(uint256 _newPlatformFees) public onlyOwner {
+        uint256 oldFee = platformFees;
+        platformFees = _newPlatformFees;
+        emit PlatformFeeUpdated(oldFee, _newPlatformFees);
+    }
+
+    //function to withdraw accumulated platform fees, only callable by the marketplace owner
+    function withdrawPlatformFees() public onlyOwner {
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No fees to withdraw");
+        (bool success, ) = payable(MARKETPLACE_OWNER).call{value: balance}("");
+        require(success, "Withdrawal failed");
     }
 
 
