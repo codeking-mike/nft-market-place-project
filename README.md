@@ -1,69 +1,98 @@
-# nft-market-place-project
-Techcrush Cohort 6 NFT Market Place Group Project
+# NFT Marketplace Project
 
-## Foundry
+A Foundry-based NFT marketplace smart contract that allows sellers to list ERC-721 tokens for sale, buyers to purchase listed NFTs with ETH, and the marketplace owner to collect platform fees.
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+## Project Summary
 
-Foundry consists of:
+This repository contains a simple, secure NFT marketplace built with Solidity and tested using Foundry.
 
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+Key capabilities:
+- List ERC-721 NFTs for sale using `NftMarket.listNft`
+- Store listings in escrow inside the marketplace contract
+- Buy active listings with exact ETH payment
+- Calculate and collect a platform fee on each sale
+- Cancel active listings and return NFTs to sellers
+- Update platform fees and withdraw accumulated fees as marketplace owner
 
-## Documentation
+The marketplace contract is implemented in `src/NftMarket.sol`, and the deployment script is in `script/DeployNftMarket.s.sol`.
 
-https://book.getfoundry.sh/
+## Core Contract Behavior
 
-## Usage
+`NftMarket.sol` provides:
+- `listNft(address nftAddress, uint256 tokenId, uint256 price)`
+  - transfers the NFT into escrow after verifying ownership and approval
+  - records a new active listing
+- `buyNft(uint256 listingId)`
+  - checks that the listing is active and the buyer sends the exact price
+  - transfers funds to the seller after deducting platform fees
+  - transfers the NFT from escrow to the buyer
+- `cancelListing(uint256 listingId)`
+  - allows the seller to cancel an active listing and recover the NFT
+- `updatePlatformFees(uint256 newPlatformFees)`
+  - only owner can change the fee rate
+- `withdrawPlatformFees()`
+  - only owner can withdraw accumulated ETH from completed sales
+
+## Testing
+
+The contract is covered by Foundry tests in `test/NftMarket.t.sol`.
+
+Tests verify:
+- successful listing and escrow transfer
+- approval and ownership requirements for listings
+- purchase flow and fee distribution
+- cancellation behavior and active listing validation
+- owner-only access for fee updates and withdrawals
+
+## Getting Started
+
+### Prerequisites
+
+- Foundry installed
+- `forge`, `anvil`, and `cast` available in your PATH
 
 ### Build
 
-```shell
-$ forge build
+```sh
+forge build
 ```
 
-### Test
+### Run tests
 
-```shell
-$ forge test
+```sh
+forge test
 ```
 
-### Format
+### Format code
 
-```shell
-$ forge fmt
+```sh
+forge fmt
 ```
 
-### Gas Snapshots
+### Run local node
 
-```shell
-$ forge snapshot
+```sh
+anvil
 ```
 
-### Anvil
+## Deployment
 
-```shell
-$ anvil
+Deploy the marketplace contract using the script:
+
+```sh
+forge script script/DeployNftMarket.s.sol:DeployNftMarket --rpc-url <RPC_URL> --private-key <PRIVATE_KEY>
 ```
 
-### Deploy
+The deployment script initializes the contract with a default platform fee of 2.5% (250 basis points) and sets the deployer as the marketplace owner.
 
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
+## Repository Structure
 
-### Cast
+- `src/NftMarket.sol` — marketplace contract implementation
+- `test/NftMarket.t.sol` — Foundry tests for marketplace behavior
+- `script/DeployNftMarket.s.sol` — deployment script for `forge script`
+- `test/MockNft.sol` — ERC-721 mock used for testing
 
-```shell
-$ cast <subcommand>
-```
+## Notes
 
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+- The marketplace uses OpenZeppelin interfaces and `ReentrancyGuard` for secure transfers.
+- Fees are stored in basis points, where `10000` represents `100%`.
