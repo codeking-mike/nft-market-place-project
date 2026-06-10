@@ -102,7 +102,7 @@ contract NftMarketTest is Test {
         assertEq(nft.ownerOf(TOKEN_ID), buyer);
 
         // Verify listing marked as sold
-        (, , , , , NftMarket.nftStatus status) = market.listings(1);
+        (,,,,, NftMarket.nftStatus status) = market.listings(1);
         assertEq(uint8(status), uint8(NftMarket.nftStatus.Sold));
 
         // Verify seller received payment (after fee)
@@ -160,7 +160,7 @@ contract NftMarketTest is Test {
         assertEq(nft.ownerOf(TOKEN_ID), seller);
 
         // Verify listing marked as delisted
-        (, , , , , NftMarket.nftStatus status) = market.listings(1);
+        (,,,,, NftMarket.nftStatus status) = market.listings(1);
         assertEq(uint8(status), uint8(NftMarket.nftStatus.Delisted));
     }
 
@@ -179,7 +179,7 @@ contract NftMarketTest is Test {
 
     function testUpdatePlatformFees_OnlyOwner() public {
         uint256 newFee = 25;
-        
+
         vm.prank(marketOwner);
         market.updatePlatformFees(newFee);
 
