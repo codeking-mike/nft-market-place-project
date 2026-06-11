@@ -12,7 +12,7 @@ contract NftMarket is IERC721Receiver, ReentrancyGuard, Ownable {
     address public immutable MARKETPLACE_OWNER; // The address that receives the platformFees
     uint256 public listingIdCounter; // a counter that holds every unique listing in the smart contract
 
-    enum nftStatus {
+    enum NftStatus {
         Active,
         Sold,
         Delisted
@@ -47,7 +47,7 @@ contract NftMarket is IERC721Receiver, ReentrancyGuard, Ownable {
 
     constructor(uint256 _platformFees, address _marketPlaceOwner) Ownable(_marketPlaceOwner) {
         platformFees = _platformFees;
-        MARKETPLACE_OWNER = _marketPlaceOwner;
+        marketPlaceOwner = _marketPlaceOwner;
     }
 
     //list NFT function
@@ -141,7 +141,7 @@ contract NftMarket is IERC721Receiver, ReentrancyGuard, Ownable {
     function withdrawPlatformFees() public onlyOwner {
         uint256 balance = address(this).balance;
         require(balance > 0, "No fees to withdraw");
-        (bool success,) = payable(MARKETPLACE_OWNER).call{value: balance}("");
+        (bool success, ) = payable(marketPlaceOwner).call{value: balance}("");
         require(success, "Withdrawal failed");
     }
 }
