@@ -11,7 +11,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 contract NftMarket is IERC721Receiver, ReentrancyGuard, Ownable {
 
      uint256 public platformFees; //platform fees charged for each purchase(in basis points, e.g., 250 = 2.5%)
-     address public immutable MARKETPLACE_OWNER; // The address that receives the platformFees 
+     address public immutable marketPlaceOwner; // The address that receives the platformFees 
      uint256 public listingIdCounter; // a counter that holds every unique listing in the smart contract 
 
      enum nftStatus {Active, Sold, Delisted}
@@ -37,7 +37,7 @@ contract NftMarket is IERC721Receiver, ReentrancyGuard, Ownable {
 
     constructor(uint256 _platformFees, address _marketPlaceOwner) Ownable(_marketPlaceOwner) {
         platformFees = _platformFees;
-        MARKETPLACE_OWNER = _marketPlaceOwner;
+        marketPlaceOwner = _marketPlaceOwner;
     }
 
  //list NFT function
@@ -141,7 +141,7 @@ function buyNft(uint256 _listingId) external payable nonReentrant {
     function withdrawPlatformFees() public onlyOwner {
         uint256 balance = address(this).balance;
         require(balance > 0, "No fees to withdraw");
-        (bool success, ) = payable(MARKETPLACE_OWNER).call{value: balance}("");
+        (bool success, ) = payable(marketPlaceOwner).call{value: balance}("");
         require(success, "Withdrawal failed");
     }
 

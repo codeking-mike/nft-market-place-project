@@ -6,8 +6,8 @@ import {NftMarket} from "../src/NftMarket.sol";
 
 contract DeployNftMarket is Script {
     function run() external returns (NftMarket) {
-        // Platform fees: 250 basis points = 2.5%
-        uint256 platformFees = 250;
+        // Platform fees: 200 basis points = 2%
+        uint256 platformFees = 200;
         // Marketplace owner address (deployer address)
         address marketplaceOwner = msg.sender;
 
