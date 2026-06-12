@@ -9,7 +9,8 @@ contract DeployNftMarket is Script {
         // Platform fees: 200 basis points = 2%
         uint256 platformFees = 200;
         // Marketplace owner address (deployer address)
-        address marketplaceOwner = msg.sender;
+       // address marketplaceOwner = msg.sender;
+       address marketplaceOwner = vm.envAddress("MARKET_OWNER");
 
         vm.startBroadcast();
 
